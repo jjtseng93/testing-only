@@ -2,4 +2,4 @@ console.log('hello world');
 
 csl=console.log;
 
-csl(456789);
+csl('故意製造衝突😈');
