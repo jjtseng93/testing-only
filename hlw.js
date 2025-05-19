@@ -1,5 +1,5 @@
-console.log('hlw');
+console.log('hello world');
 
 csl=console.log;
 
-csl(123);
+csl(123456);
