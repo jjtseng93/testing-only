@@ -191,3 +191,23 @@ sha256Base64("hello").then(console.log);  // base64 字串
   b={};
   d2=await DataSyncer.create( 'test', b);
   d2.print();
+
+/* 測試碼 執行anci的0.apk裏面
+
+
+  setInterval( x=>{demo.innerText="**"+jss(a)+"****"+jss(b)}, 500);
+  setInterval( x=>
+  {
+    d2.pull(true);
+  } , 1000);
+
+  setInterval( async ()=>
+  {
+    await d1.commit();
+    d1.push(true);
+  } , 1000);
+
+  
+
+
+*/
