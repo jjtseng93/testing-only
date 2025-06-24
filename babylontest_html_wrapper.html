@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=1">
+  <title>Babylon WebGPU</title>
+  <style>
+  html, body { margin:0; padding:0;  }
+  canvas { width:100vw; height:50vw }
+  </style>
+
+<script>
+
+
+
+function touchOffset(event)
+{
+    const touch = event.touches[0];
+    const rect = event.target
+                          .getBoundingClientRect();
+    event.offsetX = touch.clientX - rect.left;
+    event.offsetY = touch.clientY - rect.top;
+}
+
+function touchToMove(event)
+{
+  touchOffset(event);
+  let x = event.offsetX-30 ;
+  let y = -(event.offsetY-30) ;
+
+  //alert2([x,y])
+  //return;
+
+  if( y-x>0 && y+x>0 ) setMove(0,0.01);
+  else if( y-x>0 && y+x<0) setMove(-0.01);
+  else if( y-x<0 && y+x<0) setMove(0,-0.01);
+  else { setMove(0.01); }
+}
+
+function setMove( r_l=0 , f_b=0 )
+{
+  const v = 5 ;
+  gcmo.vx = v * r_l * gcmo.rvector.x ;
+  gcmo.vz = v * r_l * gcmo.rvector.z ;
+
+  gcmo.vx += v * f_b * gcmo.dvector.x ;
+  gcmo.vz += v * f_b * gcmo.dvector.z ;
+}
+
+function clearMove()
+{
+  gcmo.vx = 0;
+  gcmo.vz = 0;
+}
+
+function toggleFullscreen()  //  engine
+{
+  if(document.fullscreenElement != document.body)
+    document.body.requestFullscreen();
+  else
+    document.exitFullscreen();
+
+  engine.resize();
+}
+
+</script>
+
+</head>
+
+<body>
+
+  <canvas id="renderCanvas" oncontextmenu="if(event.offsetX>renderCanvas.offsetWidth/2)toggleFullscreen();"></canvas>
+
+<h1 id="cmove"
+    oncontextmenu="event.preventDefault();"
+    ontouchstart="event.preventDefault();"
+    style="z-index:1000;position:absolute;
+      margin:0px;
+      left:10px;bottom:10px; ">
+    <div
+      style="display:inline-block;
+          background-color: #00007788;
+          width:60px;height:60px"
+      oncontextmenu="event.preventDefault();"
+      ontouchstart="event.preventDefault();
+          event.stopPropagation();"
+ontouchmove="touchToMove(event);"
+ontouchend="clearMove();">
+    </div>
+</h1>
+
+<div style="text-align:center;">
+
+  <button onclick="
+      if(!sind.tarr) sind.tarr=[];
+      let t=sind.innerText;
+      sind.tarr[t-1]=jstest.value;
+      t=(t-1)==0?50:(t-1);
+      jstest.value=sind.tarr[t-1];
+      sind.innerText=t;" style="">←</button>
+<span id="sind">1</span>/50
+<button onclick="
+      if(!sind.tarr) sind.tarr=[];
+      let t=sind.innerText;
+      sind.tarr[t-1]=jstest.value;
+      t=(t- -1)==51?1:(t- -1);
+      jstest.value=sind.tarr[t-1];
+      sind.innerText=t;" style="">→</button>
+
+<button oncontextmenu="anci.objbs(bb);"
+               onclick="alert2(`設定好了一個非同步的環境, 並且物件鏈鎖打開, 可以使用縮寫 jss, jsp, csl
+有錯誤會跳alert2
+
+Async context set up, object chaining on, jss, jsp, csl are available shorthands
+Errors will be printed by alert2`)">注意 Cautions</button>
+<br>
+
+<!-- onkeyup attached in Code.js -->
+<textarea id="jstest" rows="15">
+anci.help();
+
+</textarea>
+
+<br><br>
+
+<span onclick="anci.eval(jstest.value);" oncontextmenu="alert('Run the text above as javascript')">
+  <button>執行以上命令Run the above commands</button>
+</span>&nbsp;&nbsp;
+
+<hr>
+
+<div style="overflow:auto; display:inline-block;
+            width:90vw;height:90vh">
+
+<div id="mroot" style="position:relative; display:inline-block; border: 1px solid blue; width:1000px; height:1000px;">
+</div>
+
+</div>
+
+
+</div>
+
+<br><br><br><br><br><br>
+
+  <script type="module">
+
+  await import("./nlib/anci.js");
+
+/*
+navigator.gpu.requestAdapter().then(adapter => {
+  anci.objbs(adapter);
+});
+*/
+
+  await anci.eruda();
+  
+  anci.showp("wait 1s for eruda");
+  
+  //await anci.sleep(1000);
+  
+  anci.hidep()
+  
+if(0)
+{
+    anci.showp("wait for bb load")
+
+    //await anci.sleep(5000)
+    
+    anci.hidep();
+
+    //await alert2("test")
+
+    //anci.objbs(BABYLON);
+}
+
+    const canvas = document.getElementById("renderCanvas");
+
+    window.gb = {} ;
+
+    import "./babylon.js";
+
+    window.bb = BABYLON ;
+
+    window.bbv3 = (...xyz)=>( new BABYLON.Vector3(...xyz.flat()) ) ;
+      bbv3.zero = ()=>bb.Vector3.Zero();
+      bbv3.one = ()=>bbv3(1,1,1);
+
+    window.bbc3 = (...xyz)=>
+    {
+      if( (xyz+"").startsWith("#") )
+        return BABYLON.Color3.FromHexString(xyz+"") ;
+      else
+        return new BABYLON.Color3(...xyz.flat()) ;
+    } ;
+
+    const engine = new BABYLON.WebGPUEngine(canvas);
+    await engine.initAsync(); // 初始化 WebGPU
+
+    engine.setHardwareScalingLevel(1/window.devicePixelRatio);
+
+    window.engine = engine;
+
+    const scene = new BABYLON.Scene(engine);
+
+    const 度=Math.PI / 180 ;
+
+    const 立體感 = 0.06 * 1 ;  //  雙眼間距
+
+    const rpath = "instantgun/Img/";
+
+    var camera;
+    const maskL = 0x10000000 ;
+    const maskR = 0x20000000 ;
+    const maskB = 0x0FFFFFFF ;
+
+if(0)
+{
+    camera = new BABYLON.StereoscopicArcRotateCamera("cam", 45*度 , 45*度 , 4, BABYLON.Vector3.Zero(), 立體感 ,true, scene);
+    camera.attachControl(canvas, true);
+}
+else
+{
+    camera = new BABYLON.StereoscopicFreeCamera("camera",
+                bbv3(0, 4, -10), 立體感 ,true, scene);
+    camera.setTarget(bbv3(0,0,2));
+    camera.attachControl(canvas, true);
+
+    camera.rigCameras[0].layerMask = maskL | maskB;
+    camera.rigCameras[1].layerMask = maskR | maskB;
+}
+    window.gcmo = camera ;
+
+    window.light = new BABYLON.HemisphericLight("light",
+                        bbv3(1, 1, -1), scene);
+
+    const light2 = new BABYLON.HemisphericLight("light",
+                        bbv3(-1, 1, 1), scene);
+
+    window.ground = bb.MeshBuilder.CreateGround("ground", {width:100,height:100,subdivisions:2},scene);
+
+    const gMat = new bb.StandardMaterial("gMat",scene);
+
+    //gMat.diffuseColor = bbc3(0.59,0.29,0.0);
+    gMat.diffuseTexture = new bb.Texture(rpath+"floor.jpg",scene)
+    gMat.specularColor = bbc3(0,0,0);
+    ground.material = gMat ;
+
+
+
+    window.box = BABYLON.MeshBuilder.CreateBox("box", { size: 1 }, scene);
+    box.position.y = 0.5 ;
+    box.position.z = 3 ;
+    box.rotation.y = 45*度 ;
+
+    const pbr = new bb.PBRMaterial(null,scene);
+    pbr.albedoColor = bbc3(0.8,0.35,0.17);
+    pbr.metallic = 0.5 ;
+    pbr.roughness = 0.2 ;
+    box.material = pbr ;
+
+    function lay()
+    {
+      let obj = this.clone();
+      obj.position = bbv3.zero() ;
+      obj.rotation = bbv3.zero() ;
+      obj.scaling = bbv3.one() ;
+      obj.isVisible = true ;
+      return obj ;
+    }
+
+    box.lay = lay ;
+
+    window.plane = bb.MeshBuilder.CreatePlane(null,{ size: 1 }, scene);
+    //plane.position.y = 0.5;
+    plane.isVisible = false ;
+    plane.lay = lay ;
+    //plane.layerMask = maskR ;
+
+function drawsbs(path,pos,size)  //  env: bb plane maskL maskR scene
+{
+  const parentPlane = plane.clone();
+
+  const leftPlane = plane.lay();
+  leftPlane.parent = parentPlane ;
+  leftPlane.layerMask = maskL ;
+  const lm = new bb.StandardMaterial(null,scene);
+
+  lm.diffuseTexture = new bb.Texture(path+"L.png",scene);
+  lm.diffuseTexture.hasAlpha = true ;
+  lm.useAlphaFromDiffuseTexture = true ;
+  leftPlane.material = lm ;
+
+  let lpb = leftPlane.clone(null,parentPlane);
+  lpb.rotation.y += 180 * 度 ;
+
+  const rightPlane = plane.lay();
+  rightPlane.parent = parentPlane ;
+  rightPlane.layerMask = maskR ;
+  const rm = new bb.StandardMaterial(null,scene);
+
+  rm.diffuseTexture = new bb.Texture(path+"R.png",scene);
+  rm.diffuseTexture.hasAlpha = true ;
+  rm.useAlphaFromDiffuseTexture = true ;
+  rightPlane.material = rm ;
+
+  let rpb = rightPlane.clone(null,parentPlane);
+  rpb.rotation.y += 180 * 度 ;
+
+  //leftPlane.isVisible = true;
+  //rightPlane.isVisible = true;
+
+  parentPlane.position.set( ...(pos || [0,0,0]) );
+  parentPlane.scaling.set( ...(size || [1,1,1]) );
+
+  return parentPlane ;
+}
+
+function drawline(start, end, options = {})  //  env: BABYLON scene pbr
+{
+    const {
+        radius = 0.05,
+        color = new BABYLON.Color3(0, 1, 0), // 預設綠色
+        up = new BABYLON.Vector3(0, 1, 0),
+    } = options;
+
+    const startVec = BABYLON.Vector3.FromArray(start);
+    const endVec = BABYLON.Vector3.FromArray(end);
+
+    const direction = endVec.subtract(startVec);
+    const length = direction.length();
+    const midpoint = startVec.add(direction.scale(0.5));
+
+    const cylinder = BABYLON.MeshBuilder.CreateCylinder(null, {
+        height: length,
+        diameter: radius * 2,
+    }, scene);
+
+    // 顏色材質
+    /*
+    const material = new BABYLON.StandardMaterial(null, scene);
+    material.diffuseColor = color;
+    */
+    cylinder.material = pbr;
+
+    // 設定位置
+    cylinder.position = midpoint;
+
+    // 計算旋轉使圓柱對齊兩點
+    const axis = up.cross(direction);
+    const angle = Math.acos(BABYLON.Vector3.Dot(up.normalize(), direction.normalize()));
+    if (axis.length() > 0.0001) {
+        cylinder.rotationQuaternion = BABYLON.Quaternion.RotationAxis(axis.normalize(), angle);
+    }
+
+    return cylinder;
+}
+
+
+function drawtext(textToDraw, tsize, bgtransparent = true)  //  plane bb scene
+{
+  textToDraw = (textToDraw || "你好 世界\nThis is John's world")+"";
+  var lines = textToDraw.split("\n").length+1;
+
+  tsize = tsize || 120 ;
+
+
+  const dtx = new bb.DynamicTexture(null,{width:2000,height:tsize*lines},scene);
+
+
+
+  const ctx = dtx.getContext();
+  ctx.font = tsize + "px sans-serif";
+  ctx.fillStyle = "white"
+  if(lines == 2)
+    ctx.fillText( textToDraw , 0, tsize ) ;
+  else
+  {
+    let arr = textToDraw.split("\n") ;
+    for( let i = 0 ; i<arr.length ; i++ )
+      ctx.fillText( arr[i] , 0, tsize*(i+1) ) ;
+  }
+
+  let w = ctx.measureText(textToDraw.split("\n")[0]).width;
+
+  dtx.update();
+
+  const mat = new bb.StandardMaterial(null,scene);
+  mat.diffuseTexture = dtx ;
+  mat.diffuseTexture.hasAlpha = bgtransparent ;
+  mat.useAlphaFromDiffuseTexture = true ;
+  mat.backFaceCulling = false ;
+
+  let p = new bb.CreatePlane(null,{width:20,height:tsize*lines/100},scene);
+  
+  let n = new bb.TransformNode();
+  
+  p.parent = n ;
+  
+  p.position.x = 10-w/100/2 ;
+
+  p.material = mat;
+  n.ctx = ctx ;
+  n.text = (txt)=>
+  {
+    txt = ( txt || "" ) + "" ;
+
+    let arr = txt.split("\n");
+
+    lines = arr.length+1;
+
+    ctx.clearRect(0,0,2000,tsize*lines);
+
+    if(lines == 2)
+      ctx.fillText(txt, 0, tsize);
+    else
+    {
+      for( let i = 0 ; i<arr.length ; i++ )
+        ctx.fillText( arr[i] , 0, tsize*(i+1) ) ;
+    }
+
+    dtx.update();
+
+    let w = ctx.measureText(txt.split("\n")[0]).width;
+
+    p.position.x = 10 - w/100/2 ;
+
+    /*
+
+    let vtd = new bb.VertexData.CreatePlane({width:w/100,height:tsize*2/100});
+    vtd.applyToMesh(p);
+    */
+  }
+
+  return n;
+}
+
+
+    Object.assign( gb, { drawline, drawsbs, drawtext,box,plane } ) ;
+    
+var gpc=0 ;
+    
+function genpos()
+{
+  let ind = gpc++ ;
+  const [ r, th ] = [ 1.5+ind/8*1.5 , 45*度*ind ] ;
+  return [ r*Math.cos(th) , 1 , r*Math.sin(th) ] ;
+}
+
+function addtools( dom , obj )
+{
+  dom.p = obj.position ;
+  dom.s = obj.scaling ;
+  dom.r = obj.rotation ;
+}
+
+function adjustdompos( dom , obj )
+{
+  let p = obj.getAbsolutePosition();
+  $(dom).css('position','absolute')
+               .css( 'left' , 500- -p.x*200)
+               .css( 'top' , 500-p.z*200 )
+               .css( 'border' , '1px solid brown' );
+}
+    
+    
+var allcounter = 1 ;
+
+function h2o(jqd, t, p, pos, sca, rot )
+{
+  if( !jqd ) 
+  {
+    jqd=$("<div>") ;
+    $(mroot).append(jqd) ;
+  }
+  
+  const dq = `"` ;
+  
+  t = jqd.attr('t') || jqd.attr('type') || t || 'box' ;
+  let psr = jqd.attr('psr') || jqd.attr('pos-sca-rot') ||
+                 "" ;
+  psr = eval(  "[ " + psr + " ]"  )  ;
+  
+  pos = psr[0] || pos || genpos() ;
+  sca = psr[1] || sca || [1,1,1] ;
+  rot = psr[2] || rot || [0,0,0] ;
+  
+  p = jqd.attr('p') || jqd.attr('params') || p || "" ;
+  p = eval(  "[ " + p + " ]"  )  ;
+  
+  if( ! (jqd.text()||"").trim() )
+    jqd.text( "自動" + t );
+    
+  jqd.attr( "nid" , allcounter+"" ) ;
+    allcounter++ ;
+  
+  let ff = gb[t] ;
+  if( typeof(ff) == 'function' )
+    jqd[0].obj = ff( ...p ) ;
+  else if( ff )
+    jqd[0].obj = ff.lay();
+    
+  let [d,o] = [ jqd[0] , jqd[0].obj ] ;
+  addtools( d , o );
+  
+  d.p.set( ...pos );
+  d.s.set( ...sca );
+  d.r.set( ...rot );
+  
+  adjustdompos( d , o );
+  
+  return d ;
+}
+
+gb.h2o = h2o ;
+
+
+
+async function loadstage( filen_or_html )
+{
+  if( ! filen_or_html ) return false;
+  
+  filen_or_html += "" ;
+  
+  let html = ""
+  
+  if( ! filen_or_html.includes("</div>") &&
+          await anci.hasf(filen_or_html)    )  //  filen
+    html = await anci.rf( filen_or_html ) ;
+  else
+    html = filen_or_html ;
+  
+  let re = $("<div>").append( html )
+  let alldiv = re.find("div") ;
+  for( let i = 0 ; i < alldiv.length ; i++ )
+  {
+    let item = alldiv.eq(i) ;
+    
+    let dom = h2o( item );
+    if( item.parent()[0].obj )
+      dom.obj.parent = item.parent()[0].obj ;
+    
+  }
+  
+  alldiv.appendTo("#mroot") ;
+  //re.children().appendTo( "#mroot" );
+}
+
+gb.loadstage = loadstage ;
+
+
+loadstage`
+<div id="pbox">
+  自動箱子
+  <div id="cbox" psr="[2,0,0]"></div>
+</div>
+`
+
+    gb.box2 = box.clone();
+    gb.box2.position.x-=2;
+    //alert2(box2.id);
+
+    gb.xz = drawsbs(rpath+"小智", [-1,1,-2],[1.6,2,1])
+    gb.xk = drawsbs(rpath+"小凱", [+1,1,-2],[1.6,2,1])
+    //gb.wh = drawsbs(rpath+"鯨魚", [-3,1,-2],[1.6,2,1])
+    
+    gb.wh=h2o(null,'drawsbs',"rpath+'鯨魚'",
+                          [-5,1,-2] , [ 1.6,2,1] )
+    
+    //gb.t = drawtext();
+    gb.t=h2o( null, "drawtext", null, [0,3,0] );
+    
+    
+    
+    
+    
+
+    window.rdcounter = 0 ;
+
+    engine.runRenderLoop(() => {
+      rdcounter = (rdcounter + 1) % 10000000 ;
+
+      gcmo.dvector = gcmo.getDirection(bb.Axis.Z);
+      gcmo.rvector = gcmo.getDirection(bb.Axis.X);
+      gcmo.lvector = gcmo.rvector.negate();
+
+      box.rotation.y += 0.01;
+
+      if(gcmo.vx) gcmo.position.x += gcmo.vx;
+      if(gcmo.vz) gcmo.position.z += gcmo.vz;
+
+      scene.render();
+    });
+
+    window.addEventListener("resize", () => engine.resize());
+  </script>
+</body>
+</html>
