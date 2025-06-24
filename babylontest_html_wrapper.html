@@ -38,7 +38,7 @@ function touchToMove(event)
   else { setMove(0.01); }
 }
 
-function setMove( r_l=0 , f_b=0 )
+function setMove( r_l=0 , f_b=0 )  //  gcmo
 {
   const v = 5 ;
   gcmo.vx = v * r_l * gcmo.rvector.x ;
@@ -48,7 +48,7 @@ function setMove( r_l=0 , f_b=0 )
   gcmo.vz += v * f_b * gcmo.dvector.z ;
 }
 
-function clearMove()
+function clearMove()  //  gcmo
 {
   gcmo.vx = 0;
   gcmo.vz = 0;
@@ -143,7 +143,17 @@ anci.help();
 
 <br><br><br><br><br><br>
 
+
+
   <script type="module">
+  
+  
+  
+  //  Pollution 污染：bb anci gcmo
+  //  Debug 污染：
+  //  engine scene gb bbv3 bbc3 box plane
+  
+  var debug = true ;
 
   await import("./nlib/anci.js");
 
@@ -160,33 +170,21 @@ navigator.gpu.requestAdapter().then(adapter => {
   //await anci.sleep(1000);
   
   anci.hidep()
-  
-if(0)
-{
-    anci.showp("wait for bb load")
 
-    //await anci.sleep(5000)
-    
-    anci.hidep();
+    const canvas = $("canvas")[0] ;
 
-    //await alert2("test")
+    var gb = {} ;
 
-    //anci.objbs(BABYLON);
-}
-
-    const canvas = document.getElementById("renderCanvas");
-
-    window.gb = {} ;
 
     import "./babylon.js";
 
     window.bb = BABYLON ;
 
-    window.bbv3 = (...xyz)=>( new BABYLON.Vector3(...xyz.flat()) ) ;
+    var bbv3 = (...xyz)=>( new BABYLON.Vector3(...xyz.flat()) ) ;
       bbv3.zero = ()=>bb.Vector3.Zero();
       bbv3.one = ()=>bbv3(1,1,1);
 
-    window.bbc3 = (...xyz)=>
+    var bbc3 = (...xyz)=>
     {
       if( (xyz+"").startsWith("#") )
         return BABYLON.Color3.FromHexString(xyz+"") ;
@@ -199,7 +197,6 @@ if(0)
 
     engine.setHardwareScalingLevel(1/window.devicePixelRatio);
 
-    window.engine = engine;
 
     const scene = new BABYLON.Scene(engine);
 
@@ -231,15 +228,17 @@ else
 }
     window.gcmo = camera ;
 
-    window.light = new BABYLON.HemisphericLight("light",
+    const light1 = new BABYLON.HemisphericLight(null,
                         bbv3(1, 1, -1), scene);
 
-    const light2 = new BABYLON.HemisphericLight("light",
+
+    const light2 = new BABYLON.HemisphericLight(null,
                         bbv3(-1, 1, 1), scene);
 
-    window.ground = bb.MeshBuilder.CreateGround("ground", {width:100,height:100,subdivisions:2},scene);
 
-    const gMat = new bb.StandardMaterial("gMat",scene);
+    const ground = bb.MeshBuilder.CreateGround("ground", {width:100,height:100,subdivisions:2},scene);
+
+    var gMat = new bb.StandardMaterial("gMat",scene);
 
     //gMat.diffuseColor = bbc3(0.59,0.29,0.0);
     gMat.diffuseTexture = new bb.Texture(rpath+"floor.jpg",scene)
@@ -247,17 +246,6 @@ else
     ground.material = gMat ;
 
 
-
-    window.box = BABYLON.MeshBuilder.CreateBox("box", { size: 1 }, scene);
-    box.position.y = 0.5 ;
-    box.position.z = 3 ;
-    box.rotation.y = 45*度 ;
-
-    const pbr = new bb.PBRMaterial(null,scene);
-    pbr.albedoColor = bbc3(0.8,0.35,0.17);
-    pbr.metallic = 0.5 ;
-    pbr.roughness = 0.2 ;
-    box.material = pbr ;
 
     function lay()
     {
@@ -268,14 +256,30 @@ else
       obj.isVisible = true ;
       return obj ;
     }
+    
 
+    const box = bb.MeshBuilder.CreateBox("box", 
+                         { size: 1 }, scene );
+    box.position.y = 0.5 ;
+    box.position.z = 3 ;
+    box.rotation.y = 45*度 ;
+
+    const pbr = new bb.PBRMaterial(null,scene);
+    pbr.albedoColor = bbc3(0.8,0.35,0.17);
+    pbr.metallic = 0.5 ;
+    pbr.roughness = 0.2 ;
+    box.material = pbr ;
+    
     box.lay = lay ;
 
-    window.plane = bb.MeshBuilder.CreatePlane(null,{ size: 1 }, scene);
-    //plane.position.y = 0.5;
+
+
+    const plane = bb.MeshBuilder.CreatePlane(null,
+                             { size: 1 }, scene );
     plane.isVisible = false ;
     plane.lay = lay ;
-    //plane.layerMask = maskR ;
+
+
 
 function drawsbs(path,pos,size)  //  env: bb plane maskL maskR scene
 {
@@ -314,7 +318,8 @@ function drawsbs(path,pos,size)  //  env: bb plane maskL maskR scene
   parentPlane.scaling.set( ...(size || [1,1,1]) );
 
   return parentPlane ;
-}
+}  //  drawsbs
+
 
 function drawline(start, end, options = {})  //  env: BABYLON scene pbr
 {
@@ -354,7 +359,7 @@ function drawline(start, end, options = {})  //  env: BABYLON scene pbr
     }
 
     return cylinder;
-}
+}  //  drawline
 
 
 function drawtext(textToDraw, tsize, bgtransparent = true)  //  plane bb scene
@@ -433,10 +438,14 @@ function drawtext(textToDraw, tsize, bgtransparent = true)  //  plane bb scene
   }
 
   return n;
-}
+}  //  drawtext
 
 
-    Object.assign( gb, { drawline, drawsbs, drawtext,box,plane } ) ;
+    Object.assign( gb, 
+    { drawsbs, drawline, drawtext, 
+      box, plane } 
+    ) ;
+    
     
 var gpc=0 ;
     
@@ -447,12 +456,14 @@ function genpos()
   return [ r*Math.cos(th) , 1 , r*Math.sin(th) ] ;
 }
 
+
 function addtools( dom , obj )
 {
   dom.p = obj.position ;
   dom.s = obj.scaling ;
   dom.r = obj.rotation ;
 }
+
 
 function adjustdompos( dom , obj )
 {
@@ -462,6 +473,7 @@ function adjustdompos( dom , obj )
                .css( 'top' , 500-p.z*200 )
                .css( 'border' , '1px solid brown' );
 }
+    
     
     
 var allcounter = 1 ;
@@ -549,33 +561,40 @@ async function loadstage( filen_or_html )
 gb.loadstage = loadstage ;
 
 
-loadstage`
+
+    //  以傳統方式增加物件
+
+    gb.box2 = box.clone();
+    gb.box2.position.x-=2;
+
+    gb.xz = drawsbs(rpath+"小智", [-1,1,-2],[1.6,2,1])
+    gb.xk = drawsbs(rpath+"小凱", [+1,1,-2],[1.6,2,1])
+    
+    
+    
+    //  以h2o 增加物件
+    
+    gb.wh = h2o(null,'drawsbs',"rpath+'鯨魚'",
+                          [-5,1,-2] , [ 1.6,2,1] )
+    
+    gb.t = h2o( null, "drawtext", null, [0,3,0] );
+    
+    
+    
+    //  以loadstage增加物件
+    
+    loadstage`
 <div id="pbox">
   自動箱子
   <div id="cbox" psr="[2,0,0]"></div>
 </div>
 `
+    
+    
+    
+    //  Render function     
 
-    gb.box2 = box.clone();
-    gb.box2.position.x-=2;
-    //alert2(box2.id);
-
-    gb.xz = drawsbs(rpath+"小智", [-1,1,-2],[1.6,2,1])
-    gb.xk = drawsbs(rpath+"小凱", [+1,1,-2],[1.6,2,1])
-    //gb.wh = drawsbs(rpath+"鯨魚", [-3,1,-2],[1.6,2,1])
-    
-    gb.wh=h2o(null,'drawsbs',"rpath+'鯨魚'",
-                          [-5,1,-2] , [ 1.6,2,1] )
-    
-    //gb.t = drawtext();
-    gb.t=h2o( null, "drawtext", null, [0,3,0] );
-    
-    
-    
-    
-    
-
-    window.rdcounter = 0 ;
+    var rdcounter = 0 ;
 
     engine.runRenderLoop(() => {
       rdcounter = (rdcounter + 1) % 10000000 ;
@@ -592,7 +611,21 @@ loadstage`
       scene.render();
     });
 
+
+
     window.addEventListener("resize", () => engine.resize());
+    
+    
+    
+    if(debug)
+    {
+      Object.assign( window , 
+      { engine, scene, gb, bbv3, bbc3, box, plane } 
+      ) ;
+    }
+    
+    
+    
   </script>
 </body>
 </html>
