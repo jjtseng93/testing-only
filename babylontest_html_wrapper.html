@@ -11,7 +11,136 @@
   </style>
 
 <script>
+const csl = (t)=>console.log(t) ;
+const jss = JSON.stringify;
+const jsp = JSON.parse ;
 
+var jumpq=[] ;
+async function jumpUp()
+{
+  jumpq.push(true);
+
+  let mylen = jumpq.length ;
+  let y0=gcmo.p.y ;
+
+  for(let t=0;t<=1;t+=0.01)
+  {  
+    gcmo.p.y = y0+4*t*(1-t) ;
+    await anci.sleep(10);
+    if( jumpq.length>mylen && t<0.5)
+      t=1-t ;
+    while( jumpq.length>mylen )
+      await anci.sleep(1);
+  }
+
+  jumpq.pop();
+
+}
+
+async function shoot(obj)
+{
+  gb.gun.ind = ( (gb.gun.ind||0)+1 ) % 
+                    (gb.gun?.copies?.length||30);
+  if(gb.gun.copies)
+    var b=gb.gun.copies[gb.gun.ind];
+  else
+    var b=gb.gun; 
+    
+
+  let v=0.5; 
+  let d=gcmo.dvector ;  //  .clone();
+  let p=gcmo.position ; //  .clone();
+  
+  
+  b.p.copyFrom( p );
+  /*
+  b.obj.computeWorldMatrix(true);
+  b.obj.refreshBoundingInfo();
+  */
+  gb.bumpable.add(b);
+  
+  if( ! obj )
+    b.v=d.scale(v) ;
+  else
+    b.v=obj.p.subtract(p).normalize().scale(v) ;
+  
+  return;
+}
+
+function stopShoot()
+{
+  clearInterval(gcmo.tsh);
+}
+
+function startShoot()
+{
+  clearInterval(gcmo.tsh);
+  shoot();
+  gcmo.tsh=setInterval(shoot,100);
+}
+
+
+
+async function gotHurt(man,weapon,e)
+{
+  if( !man || !weapon )
+  { 
+    csl('No one got hurt!') ;
+    return;
+  }
+
+  if( man.classList.contains('tquiz') )
+  {
+    takequiz(e,man);
+    return;
+  }
+
+  if(!man.stat)
+    man.stat = { attack:100, defense:99,
+                           hp:100, mp:100 };
+  if(!weapon.stat)
+    weapon.stat = { attack:100, defense:99,
+                           hp:100, mp:100 };
+
+  weapon.stat.attack=weapon.stat.attack??100;
+  man.stat.defense=man.stat.defense??99;
+  man.stat.hp=man.stat.hp??100;
+
+  let injury = weapon.stat.attack - 
+                         man.stat.defense;
+  if( injury>0 && weapon.stat.attack*1>0 )
+    man.stat.hp -= injury;
+  else if( weapon.stat.attack*1<0 )
+    man.stat.hp -= weapon.stat.attack ;
+
+  man.text?.(man.stat.hp);
+  
+  if( 0&&man.stat.hp*1<=0 )
+    $(man).remove();
+
+  if( man.stat.hp*1>1000 )
+    man.text?.( '🔮' + man.stat.hp );
+}
+
+function hideBullet(bullet)
+{
+  let b=bullet.body;
+  b.position.set(200,2,200);
+  b.velocity.set(0,0,0);
+}
+
+var wpc = 0 ;
+
+function changegun()
+{
+  wpc = (wpc- -1)%3
+  let attack = [ 100, 104 , -100 ][wpc];
+  csl(attack);
+  gball.copies.forEach(i => 
+  { 
+    i.stat.attack = attack ;
+  } );
+}
 
 
 function touchOffset(event)
@@ -38,20 +167,70 @@ function touchToMove(event)
   else { setMove(0.01); }
 }
 
-function setMove( r_l=0 , f_b=0 )  //  gcmo
-{
-  const v = 5 ;
-  gcmo.vx = v * r_l * gcmo.rvector.x ;
-  gcmo.vz = v * r_l * gcmo.rvector.z ;
+var movestate = "";
+var movefrontback = true ;
 
-  gcmo.vx += v * f_b * gcmo.dvector.x ;
-  gcmo.vz += v * f_b * gcmo.dvector.z ;
+function setMove( r_l=0 , f_b=0 )  //  gcmo bb
+{
+  if(movestate == r_l+","+f_b) return;
+  
+  movestate = r_l+","+f_b ;
+
+  if( ! gb.cmobj )
+    gb.cmobj = gcmo ;
+    
+  if( gb.movable && 
+       ! gb.movable.has( gb.cmobj ) )
+    gb.movable.add( gb.cmobj ) ;
+
+  const v = 5 ;
+  
+  if( movefrontback )
+  gb.cmobj.v = new bb
+     .Vector3(v * r_l * gcmo.rvector.x + 
+                     v * f_b * gcmo.dvector.x ,
+                     0 , 
+                     v * r_l * gcmo.rvector.z + 
+                     v * f_b * gcmo.dvector.z    ) ;
+  else
+  gb.cmobj.v = new bb
+     .Vector3(v * r_l * gcmo.rvector.x ,
+                     v*f_b,
+                     v * r_l * gcmo.rvector.z
+                        ) ;
 }
 
 function clearMove()  //  gcmo
 {
-  gcmo.vx = 0;
-  gcmo.vz = 0;
+  movestate = "" ;
+  gb.cmobj.v.set(0,0,0)
+}
+
+function objMenu(domthis)
+{
+  const d = domthis ;
+  
+  anci.objbs( { 
+      position: d.p+'',
+      scaling: d.s+'',
+      rotation: d.r+'',
+      nid: d.getAttribute?.('nid'), 
+      outerHTML: d.outerHTML || "no data",
+      setAsMoveTarget: ()=>(gb.cmobj=d , 'ok') ,
+      restoreMoveTarget: ()=>(gb.cmobj=gcmo , 'ok'),
+      setAsBumpable: ()=>(gb.bumpable.add(d)),
+      setAsUnbumpable: ()=>(gb.bumpable.delete(d)),
+  } );
+}
+
+function mainMenu()
+{
+  anci.objbs( {
+      toggleMoveDirection: ()=>(movefrontback=!movefrontback) ,
+      movable:Object.fromEntries( [...gb.movable].map(i=>([i.textContent||"nil",i.getAttribute?.('nid')])) ) ,
+      
+      bumpable:Object.fromEntries( [...gb.bumpable].map(i=>([i.textContent||"nil",i.getAttribute?.('nid')])) )
+  } ) ;
 }
 
 function toggleFullscreen()  //  engine
@@ -64,13 +243,24 @@ function toggleFullscreen()  //  engine
   engine.resize();
 }
 
+
+
 </script>
+
+
 
 </head>
 
+
+
 <body>
 
-  <canvas id="renderCanvas" oncontextmenu="if(event.offsetX>renderCanvas.offsetWidth/2)toggleFullscreen();"></canvas>
+
+
+  <canvas id="renderCanvas" oncontextmenu="if(event.offsetX>renderCanvas.offsetWidth/2)toggleFullscreen();
+  else mainMenu();">
+  </canvas>
+
 
 <h1 id="cmove"
     oncontextmenu="event.preventDefault();"
@@ -90,6 +280,33 @@ ontouchend="clearMove();">
     </div>
 </h1>
 
+<h1 id="cshoot"
+    oncontextmenu="event.preventDefault();"
+    onmousedown="eval( $(this).attr('ontouchstart') );"
+    onmouseup="eval( $(this).attr('ontouchend') );"
+    ontouchstart="event.preventDefault();
+        event.stopPropagation();
+        startShoot();"
+    ontouchend="stopShoot();"
+    style="z-index:1000;position:absolute;
+      margin:0px; 
+      right:10px;bottom:10px; font-size:60px">
+🔫
+</h1>
+
+<h1 id="cjump"
+    oncontextmenu="event.preventDefault();"
+    onclick="event.preventDefault();
+        event.stopPropagation();
+        jumpUp();
+    "
+    style="z-index:1000;position:absolute;
+      margin:0px; 
+      right:10px;bottom:70px; font-size:60px">
+🐋
+</h1>
+
+
 <div style="text-align:center;">
 
   <button onclick="
@@ -105,6 +322,791 @@ ontouchend="clearMove();">
       let t=sind.innerText;
       sind.tarr[t-1]=jstest.value;
       t=(t- -1)==51?1:(t- -1);
+      jstest.value=sind.tarr[t-1];
+      sind.innerText=t;" style="">→</button>
+
+<button oncontextmenu="anci.objbs(bb);"
+               onclick="alert2(`設定好了一個非同步的環境, 並且物件鏈鎖打開, 可以使用縮寫 jss, jsp, csl
+有錯誤會跳alert2
+
+Async context set up, object chaining on, jss, jsp, csl are available shorthands
+Errors will be printed by alert2`)">注意 Cautions</button>
+<br>
+
+<!-- onkeyup attached in Code.js -->
+<textarea id="jstest" rows="15">
+changegun();
+
+</textarea>
+
+<br><br>
+
+<span onclick="anci.eval(jstest.value);" oncontextmenu="alert('Run the text above as javascript')">
+  <button>執行以上命令Run the above commands</button>
+</span>&nbsp;&nbsp;
+
+<hr>
+
+<div style="overflow:auto; display:inline-block;
+            width:90vw;height:90vh">
+
+<div id="mroot" style="position:relative; display:inline-block; border: 1px solid blue; width:1000px; height:1000px;">
+</div>
+
+</div>
+
+
+</div>
+
+<br><br><br><br><br><br>
+
+
+
+  <script type="module">
+  
+  
+  
+  //  Pollution 污染：bb anci gcmo
+  //  Debug 污染：
+  //  engine scene gb bbv3 bbc3 box plane
+  
+  var debug = true ;
+
+  await import("./nlib/anci.js");
+
+/*
+navigator.gpu.requestAdapter().then(adapter => {
+  anci.objbs(adapter);
+});
+*/
+
+  await anci.eruda();
+  
+  anci.showp("wait 1s for eruda");
+  
+  //await anci.sleep(1000);
+  
+  anci.hidep()
+
+    const canvas = $("canvas")[0] ;
+
+    var gb = {} ;
+
+
+    import "./babylon.js";
+
+    window.bb = BABYLON ;
+
+    var bbv3 = (...xyz)=>( new BABYLON.Vector3(...xyz.flat()) ) ;
+      bbv3.zero = ()=>bb.Vector3.Zero();
+      bbv3.one = ()=>bbv3(1,1,1);
+
+    var bbc3 = (...xyz)=>
+    {
+      if( (xyz+"").startsWith("#") )
+        return BABYLON.Color3.FromHexString(xyz+"") ;
+      else
+        return new BABYLON.Color3(...xyz.flat()) ;
+    } ;
+
+    const engine = new BABYLON.WebGPUEngine(canvas);
+    await engine.initAsync(); // 初始化 WebGPU
+
+    engine.setHardwareScalingLevel(1/window.devicePixelRatio);
+
+
+    const scene = new BABYLON.Scene(engine);
+    //scene.useRightHandedSystem = true;
+
+    const 度=Math.PI / 180 ;
+
+    const 立體感 = 0.06 * 1 ;  //  雙眼間距
+
+    const rpath = "instantgun/Img/";
+
+    var camera;
+    const maskL = 0x10000000 ;
+    const maskR = 0x20000000 ;
+    const maskB = 0x0FFFFFFF ;
+    
+    const defcampos = [0,4,-10] ;
+
+if(0)
+{
+    camera = new BABYLON.StereoscopicArcRotateCamera("cam", 45*度 , 45*度 , 4, BABYLON.Vector3.Zero(), 立體感 ,true, scene);
+    camera.attachControl(canvas, true);
+}
+else
+{
+    camera = new BABYLON.StereoscopicFreeCamera("camera",
+                bbv3(...defcampos), 立體感 ,true, scene);
+    camera.setTarget(bbv3(0,0,2));
+    camera.attachControl(canvas, true);
+
+    camera.rigCameras[0].layerMask = maskL | maskB;
+    camera.rigCameras[1].layerMask = maskR | maskB;
+}
+    window.gcmo = camera ;
+    gcmo.p = gcmo.position ;
+    gcmo.scaling = bbv3.one();
+    gcmo.defpos = defcampos ;
+    gcmo.defrot = gcmo.rotation.asArray() ;
+    gcmo.lay = ()=>gcmo ;
+    
+    gb.bumpable = new Set ;
+    gb.movable = new Set ;
+    gb.movable.add( gcmo );
+    
+
+    const light1 = new BABYLON.HemisphericLight(null,
+                        bbv3(1, 1, -1), scene);
+
+
+    const light2 = new BABYLON.HemisphericLight(null,
+                        bbv3(-1, 1, 1), scene);
+
+
+    const ground = bb.MeshBuilder.CreateBox("ground", {width:100,depth:100,height:6},scene);
+
+    ground.obj = ground ;
+    ground.position.y=-3;
+    ground.oncollide=(bp)=>bp.p.y+=0.01;
+    ground.textContent='地板';
+    /*
+    ground.computeWorldMatrix(true);
+    ground.refreshBoundingInfo();
+    */
+    gb.bumpable.add(ground);
+
+    var gMat = new bb.StandardMaterial("gMat",scene);
+
+    //gMat.diffuseColor = bbc3(0.59,0.29,0.0);
+    gMat.diffuseTexture = new bb.Texture(rpath+"floor.jpg",scene)
+    gMat.specularColor = bbc3(0,0,0);
+    ground.material = gMat ;
+
+
+
+    function lay()
+    {
+      let obj = this.clone();
+      obj.position = bbv3.zero() ;
+      obj.rotation = bbv3.zero() ;
+      obj.scaling = bbv3.one() ;
+      obj.isVisible = true ;
+      return obj ;
+    }
+    
+
+    const box = bb.MeshBuilder.CreateBox("box", 
+                         { size: 1 }, scene );
+    box.position.y = 1 ;
+    box.position.z = 3 ;
+    box.rotation.y = 45*度 ;
+
+    const pbr = new bb.PBRMaterial(null,scene);
+    pbr.albedoColor = bbc3(0.8,0.35,0.17);
+    pbr.metallic = 0.5 ;
+    pbr.roughness = 0.2 ;
+    box.material = pbr ;
+    
+    box.lay = lay ;
+
+
+
+    const plane = bb.MeshBuilder.CreatePlane(null,
+                             { size: 1 }, scene );
+    plane.isVisible = false ;
+    plane.position.y=1;
+    plane.lay = lay ;
+    
+    
+    const sphere = bb.MeshBuilder
+                                    .CreateSphere(null, {
+    diameter: 1,        // 直徑
+    segments: 32        // 球體的平滑程度
+}, scene);
+
+    sphere.position.set(-1,2,2);
+    sphere.material = pbr ;
+    sphere.isVisible = false ;
+    sphere.lay = lay ;
+
+function bindpsr( obj )
+{
+  obj.p = obj.position ;
+  obj.s = obj.scaling ;
+  obj.r = obj.rotation ;
+  obj.obj = obj
+}
+
+function drawsbs(path,pos,size)  //  env: bb plane maskL maskR scene
+{
+  path = (path||'')+"";
+
+  const parentPlane = box.lay();
+  parentPlane.isVisible=false;
+
+  const leftPlane = plane.lay();
+  leftPlane.parent = parentPlane ;
+  leftPlane.layerMask = maskL ;
+  const lm = new bb.StandardMaterial(null,scene);
+
+  lm.diffuseTexture = new bb.Texture(path+"L.png",scene);
+  lm.diffuseTexture.hasAlpha = true ;
+  lm.useAlphaFromDiffuseTexture = true ;
+  leftPlane.material = lm ;
+
+  let lpb = leftPlane.clone(null,parentPlane);
+  lpb.rotation.y += 180 * 度 ;
+
+  const rightPlane = plane.lay();
+  rightPlane.parent = parentPlane ;
+  rightPlane.layerMask = maskR ;
+  const rm = new bb.StandardMaterial(null,scene);
+
+  rm.diffuseTexture = new bb.Texture(path+"R.png",scene);
+  rm.diffuseTexture.hasAlpha = true ;
+  rm.useAlphaFromDiffuseTexture = true ;
+  rightPlane.material = rm ;
+
+  let rpb = rightPlane.clone(null,parentPlane);
+  rpb.rotation.y += 180 * 度 ;
+
+  //leftPlane.isVisible = true;
+  //rightPlane.isVisible = true;
+
+  parentPlane.position.set( ...(pos || [0,0,0]) );
+  parentPlane.scaling.set( ...(size || [1,1,1]) );
+
+  bindpsr(parentPlane) ;
+  parentPlane.content = path.split('/').pop();
+  return parentPlane ;
+}  //  drawsbs
+
+
+function drawline(start, end, options = {})  //  env: BABYLON scene pbr
+{
+    let n = new bb.TransformNode();
+
+    const {
+        radius = 0.05,
+        color = new BABYLON.Color3(0, 1, 0), // 預設綠色
+        up = new BABYLON.Vector3(0, 1, 0),
+    } = options;
+
+    const startVec = BABYLON.Vector3.FromArray(start);
+    const endVec = BABYLON.Vector3.FromArray(end);
+
+    const direction = endVec.subtract(startVec);
+    const length = direction.length();
+    const midpoint = startVec.add(direction.scale(0.5));
+
+    const cylinder = BABYLON.MeshBuilder.CreateCylinder(null, {
+        height: length,
+        diameter: radius * 2,
+    }, scene);
+
+    // 顏色材質
+    /*
+    const material = new BABYLON.StandardMaterial(null, scene);
+    material.diffuseColor = color;
+    */
+    cylinder.material = pbr;
+
+    // 設定位置
+    cylinder.position = midpoint;
+
+    // 計算旋轉使圓柱對齊兩點
+    const axis = up.cross(direction);
+    const angle = Math.acos(BABYLON.Vector3.Dot(up.normalize(), direction.normalize()));
+    if (axis.length() > 0.0001) {
+        cylinder.rotationQuaternion = BABYLON.Quaternion.RotationAxis(axis.normalize(), angle);
+    }
+
+    cylinder.parent = n ;
+    
+    bindpsr(n) ;
+    
+    n.content = `line ${start}→${end}` ;
+    
+    return n ;
+    
+}  //  drawline
+
+
+function drawtext(textToDraw, tsize, bgtransparent = true)  //  plane bb scene
+{
+  textToDraw = (textToDraw || "你好 世界\nThis is John's world")+"";
+  var lines = textToDraw.split("\n").length+1;
+
+  tsize = tsize || 120 ;
+
+
+  const dtx = new bb.DynamicTexture(null,{width:2000,height:tsize*lines},scene);
+
+
+
+  const ctx = dtx.getContext();
+  ctx.font = tsize + "px sans-serif";
+  ctx.fillStyle = "white"
+  if(lines == 2)
+    ctx.fillText( textToDraw , 0, tsize ) ;
+  else
+  {
+    let arr = textToDraw.split("\n") ;
+    for( let i = 0 ; i<arr.length ; i++ )
+      ctx.fillText( arr[i] , 0, tsize*(i+1) ) ;
+  }
+
+  let w = ctx.measureText(textToDraw.split("\n")[0]).width;
+
+  dtx.update();
+
+  const mat = new bb.StandardMaterial(null,scene);
+  mat.diffuseTexture = dtx ;
+  mat.diffuseTexture.hasAlpha = bgtransparent ;
+  mat.useAlphaFromDiffuseTexture = true ;
+  mat.backFaceCulling = false ;
+
+  let p = new bb.CreatePlane(null,{width:20,height:tsize*lines/100},scene);
+  
+  let n = bb.MeshBuilder.CreateBox(null, 
+                         { 
+                           width: w/100, 
+                           height: (tsize/100*(lines-1)) , 
+                           depth: 0.1 
+                         }, scene );
+  
+  n.isVisible = false ;
+  
+  p.parent = n ;
+  
+  p.position.x = 10-w/100/2 ;
+  p.position.y = -0.4 ;
+  p.position.z = -0.055 ;
+
+  p.material = mat;
+  n.ctx = ctx ;
+  n._text = textToDraw ;
+  n.text = (txt)=>
+  {
+    if( txt == null ) return n._text ;
+    txt = ( txt || "" ) + "" ;
+
+    n._text = txt ;
+
+    let arr = txt.split("\n");
+
+    lines = arr.length+1;
+
+    ctx.clearRect(0,0,2000,tsize*lines);
+
+    if(lines == 2)
+      ctx.fillText(txt, 0, tsize);
+    else
+    {
+      for( let i = 0 ; i<arr.length ; i++ )
+        ctx.fillText( arr[i] , 0, tsize*(i+1) ) ;
+    }
+
+    dtx.update();
+
+    let w = ctx.measureText(txt.split("\n")[0]).width;
+
+    p.position.x = 10 - w/100/2 ;
+
+    return "Success: Set text to " + txt ;
+
+    /*
+
+    let vtd = new bb.VertexData.CreatePlane({width:w/100,height:tsize*2/100});
+    vtd.applyToMesh(p);
+    */
+  }
+
+  bindpsr(n);
+  n.content = textToDraw ;
+  return n;
+}  //  drawtext
+
+
+    Object.assign( gb, 
+    { drawsbs, drawline, drawtext, ground,
+      camera, box, plane, sphere,  } 
+    ) ;
+    
+    
+var gpc=0 ;
+    
+function genpos()
+{
+  let ind = gpc++ ;
+  const [ r, th ] = [ 1.5+ind/8*1.5 , 45*度*ind ] ;
+  return [ r*Math.cos(th) , 1 , r*Math.sin(th) ] ;
+}
+
+
+function addtools( dom , obj )
+{
+  dom.p = obj.position ;
+  dom.s = obj.scaling ;
+  dom.r = obj.rotation ;
+
+  dom.text=function text( txt )
+  {
+    let child = $(dom).find("[type=drawtext]") ;
+    if( ! child ) return "" ;
+    if( txt==null ) 
+        return child[0].obj.text();
+    else
+        return child[0].obj.text( txt+"" )
+  }
+}
+
+
+function adjustdompos( dom , obj )
+{
+  let p = obj.position ;
+  $(dom).css('position','absolute')
+               .css( 'left' , 500- -p.x*100)
+               .css( 'top' , 500-p.z*100 )
+               .css( 'border' , '1px solid brown' );
+}
+    
+    
+    
+var allcounter = 1 ;
+
+async function h2o(jqd, t, p, pos, sca, rot )
+{
+  const zeros = [ 0, 0, 0 ] ;
+  const ones = [ 1, 1, 1 ] ;
+
+  if( !jqd ) 
+  {
+    jqd=$("<div>") ;
+    $(mroot).append(jqd) ;
+  }
+  
+  const dq = `"` ;
+  
+  t = jqd.attr('t') || jqd.attr('type') || t || 'box' ;
+  let psr = jqd.attr('psr') || jqd.attr('pos-sca-rot') ||
+                 "" ;
+  psr = eval(  "[ " + psr + " ]"  )  ;
+  
+  
+  p = jqd.attr('p') || jqd.attr('params') || p || "" ;
+  
+  if( typeof(p)=="string" )
+      p = eval(  "[ " + p + " ]"  )  ;
+  
+    
+  jqd.attr( "nid" , allcounter+"" ) ;
+    allcounter++ ;
+    
+    
+    
+  
+    
+  
+  let ff = gb[t] ;
+  if( typeof(ff) == 'function' )
+    jqd[0].obj = ff( ...p ) ;
+  else if( ff )
+    jqd[0].obj = ff.lay();
+    
+    
+  if( ! (jqd.text()||"").trim() )
+    jqd.text( jqd[0].obj?.content || "自動" + t );
+    
+  jqd.attr( 'oncontextmenu', ' objMenu(this) ' )
+    
+  let [d,o] = [ jqd[0] , jqd[0].obj ] ;
+  addtools( d , o );
+  
+  pos = psr[0] || pos || o.defpos || genpos() ;
+  sca = psr[1] || sca || o.defsca || [1,1,1] ;
+  rot = psr[2] || rot || o.defrot || [0,0,0] ;
+  
+  d.p.set( ...pos );
+  d.s.set( ...sca );
+  d.r.set( ...rot );
+  /*
+  o.computeWorldMatrix(true);
+  o.refreshBoundingInfo();
+  */
+  let oncollide = jqd.attr( 'oncollide' ) ;
+  if( oncollide )
+  {
+    //  jqd[0].classList.add('bumpable') ;
+    jqd[0].oncollide = new Function( "bumper" ,
+        oncollide ) ;
+  }
+   
+    
+  for(let i of jqd[0].classList)
+  {
+    if( ! gb[i] )
+      gb[i] = new Set ;
+    
+    gb[i].add( jqd[0] );
+  }
+
+  let props = jqd.attr('props') ;
+  if(props)
+    Object.assign( o, eval( "({" + props + "})" ) );
+
+  props = jqd.attr('data') ;
+  if( props )
+    Object.assign( d, eval( "({" + props + "})" ) );
+  
+  adjustdompos( d , o );
+  
+  return d ;
+}
+
+gb.h2o = h2o ;
+var loadobj = h2o.bind(null,null);
+gb.loadobj = loadobj ;
+
+
+async function loadstage( filen_or_html )
+{
+  if( ! filen_or_html ) return false;
+  
+  filen_or_html += "" ;
+  
+  let html = ""
+  
+  if( ! filen_or_html.includes("</div>") &&
+          await anci.hasf(filen_or_html)    )  //  filen
+    html = await anci.rf( filen_or_html ) ;
+  else
+    html = filen_or_html ;
+  
+  let re = $("<div>").append( html )
+  let alldiv = re.find("div") ;
+  for( let i = 0 ; i < alldiv.length ; i++ )
+  {
+    let item = alldiv.eq(i) ;
+    
+    let dom = await h2o( item );
+    if( item.parent()[0].obj )
+      dom.obj.parent = item.parent()[0].obj ;
+    
+  }
+  
+  //alldiv.appendTo("#mroot") ;
+  re.children().appendTo( "#mroot" );
+}
+
+gb.loadstage = loadstage ;
+
+
+
+    //  以傳統方式增加物件
+
+    gb.box2 = box.clone();
+    gb.box2.position.x-=2;
+    
+    
+    
+    //  以loadobj 增加物件
+
+  //gb.xz = await loadobj('drawsbs', [ rpath+'小智' ],
+  //                       [-1.5,1,-2],[1.6,2,1])
+  //gb.xk = await loadobj('drawsbs', [ rpath+'小凱' ],
+  //                       [+1.5,1,-2],[1.6,2,1])
+    
+  await loadstage`
+
+<div type="drawsbs" p=" rpath+'小智' " id="johnny"
+        class="bumpable alive" 
+        data=" stat : { attack:105, defense:99,
+                           hp:100, mp:1000 } "
+        
+        psr=" [-1.5,1,-2],[1.6,2,1] ">
+    小智🐓
+    <div type="drawtext" p="  '100' , 50 " psr="[0,1.5,0]">
+    </div>
+</div>
+
+<div type="drawsbs" p=" rpath+'小凱' " id="kenny"
+        class="bumpable alive" 
+        data=" stat : { attack:100, defense:95,
+                           hp:100, mp:100 } "
+        
+        psr=" [+1.5,1,-2] , [1.6,2,1] ">
+    小凱😎
+    <div type="drawtext" p="  '100' , 50 " psr="[0,1.5,0]">
+    </div>
+</div>
+
+<div type="drawsbs" p=" rpath+'鯨魚' " id="whale"
+        class="bumpable alive" 
+        data=" stat : { attack:100, defense:99,
+                           hp:1000, mp:1000 } "
+        offcollide=" $(this).children()[0]?.obj?.text?.(--this.hp) "
+        psr=" [-5,1,-2] , [ 1.6,2,1] ">
+    鯨魚🐋
+    <div type="drawtext" p=" '1000' , 50 " psr="[0,1.5,0]">
+    </div>
+</div>`
+  gb.wh = whale ;
+    
+  gb.t = await loadobj( "drawtext", null, [-3,5,7] );
+    
+    
+    
+    //  以loadstage增加物件
+    
+    await loadstage(`
+<div id="pbox" class="movable bumpable"
+  oncollide=" alert2('母箱被撞了：'+bumper.textContent) "
+>
+  母箱
+  <div id="cbox" psr="[2,0,0]">子箱</div>
+</div>
+<div id="gball" type="sphere" 
+        class="bumpable movable bullet"
+        data=" stat : { attack:100, defense:99,
+                           hp:100, mp:100 } "
+        oncollide=" if( gb.alive?.has?.(bumper) ) gotHurt(bumper) ; "
+        psr=" null, [0.1,0.1,0.1] ">
+        子彈
+</div>
+
+`)
+
+
+    gball.copies=[...Array(5).keys()].map(i=>
+    {
+      let b=gball.obj.clone();
+      bindpsr(b);
+      gb.movable.add(b);
+      gb.bullet.add(b);
+      b.stat = { attack:-100, defense:99,
+                           hp:100, mp:100 }
+      b.oncollide=(bumper)=>
+      {
+          //  alert2('子子彈被撞'+bp.textContent);
+          if( gb.alive?.has?.(bumper) ) 
+            gotHurt(bumper, b) ;
+      }
+      return b;
+    })
+
+    
+    gb.gun = gball ;
+
+    
+    //  Render function     
+    
+    
+    function checkCollisionsBetweenMeshes(meshSet) 
+{
+    const meshes = Array.from(meshSet);
+
+    for (let i = 0; i < meshes.length; i++) {
+        for (let j = i + 1; j < meshes.length; j++) {
+            const meshA = meshes[i];
+            const meshB = meshes[j];
+
+meshA.obj.computeWorldMatrix(true);
+meshA.obj.refreshBoundingInfo();
+
+meshB.obj.computeWorldMatrix(true);
+meshB.obj.refreshBoundingInfo();
+
+
+            // 碰撞檢查
+            if (meshA.obj
+                .intersectsMesh(meshB.obj, false) &&
+                gb.bumpable.has(meshA) &&
+                gb.bumpable.has(meshB)    ) 
+            {
+                meshA?.v?.set?.(0,0,0) ;
+                meshB?.v?.set?.(0,0,0) ;
+                
+                meshA?.oncollide?.(meshB) ;
+                meshB?.oncollide?.(meshA) ;
+                
+                let aisbullet = gb.bullet?.has?.(meshA) ;
+                    
+                let bisbullet = gb.bullet?.has?.(meshB) 
+                
+                if( aisbullet )
+                    gb.bumpable.delete(meshA);
+                if( bisbullet )
+                    gb.bumpable.delete(meshB);
+                    
+                if( meshA != ground && 
+                     meshB !=ground )
+                {
+                if( ! aisbullet && ! bisbullet )
+                {
+                    gb.bumpable.delete(meshA);
+                    gb.bumpable.delete(meshB);
+                }
+                }
+                
+            }
+        }
+    }
+}
+
+
+    var rdcounter = 0 ;
+
+    engine.runRenderLoop(() => {
+      rdcounter = (rdcounter + 1) % 10000000 ;
+
+      gcmo.dvector = gcmo.getDirection(bb.Axis.Z);
+      gcmo.rvector = gcmo.getDirection(bb.Axis.X);
+      gcmo.lvector = gcmo.rvector.negate();
+
+      box.rotation.y += 0.01;
+      
+      
+
+      for( let i of gb.movable || [] )
+      {
+        if( i.v && 
+             ! i.v.equalsWithEpsilon( bbv3(0,0,0) ) )
+          i.p.addInPlace( i.v ) ;
+          
+        if( i.av && 
+             ! i.av.equalsWithEpsilon( bbv3(0,0,0) ) )
+          i.r.addInPlace( i.av.negate() ) ;
+      }
+      
+      if(gb.bumpable)
+        checkCollisionsBetweenMeshes(
+                                                   gb.bumpable);
+
+      scene.render();
+    });
+
+
+
+    window.addEventListener("resize", () => engine.resize());
+    
+    
+    
+    if(debug)
+    {
+      Object.assign( window , 
+      { engine, scene, gb, bbv3, bbc3, box, plane } 
+      ) ;
+    }
+    
+    
+    
+  </script>
+</body>
+</html>
       jstest.value=sind.tarr[t-1];
       sind.innerText=t;" style="">→</button>
 
