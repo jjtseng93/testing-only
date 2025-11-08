@@ -6,12 +6,15 @@
 3. readme
   ```js
   console.log(1)
+  //  js comments
   ```
 ```shell
   echo hello
+  # shell comments
   mv tmpk no_backup
 ```
 - hey
+  - hello
 - you
 1. I'm
 2. happy
