@@ -4,9 +4,9 @@
 1. my
 2. first
 3. readme
-```js
+  ```js
   console.log(1)
-```
+  ```
 ```shell
   echo hello
   mv tmpk no_backup
